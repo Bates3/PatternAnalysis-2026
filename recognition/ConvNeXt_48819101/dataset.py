@@ -78,8 +78,8 @@ class ADNIDataset(Dataset):
 
 
 def _load_splits(val_frac=0.5, seed=123):
-    train = scan_split(ROOT, "train")
-    test_all = scan_split(ROOT, "test")
+    train = scan_split("train")
+    test_all = scan_split("test")
     test, val = split_by_patient(test_all, val_frac, seed)
     seen = {r[2] for r in train}
     assert not (seen & {r[2] for r in test}), "Patient leakage: train/test"
@@ -89,7 +89,7 @@ def _load_splits(val_frac=0.5, seed=123):
 
 def get_dataloaders(root=None, batch_size=64, img_size=224, num_workers=3, val_frac=0.5, seed=123):
     """Returns (train_loader, val_loader, test_loader)."""
-    train, val, test = _load_splits(root, val_frac, seed)
+    train, val, test = _load_splits(val_frac, seed)
     for name, recs in (("train", train), ("val", val), ("test", test)):
         num_ad = sum(r[1] for r in recs)
         # Print a summary of data loaded
