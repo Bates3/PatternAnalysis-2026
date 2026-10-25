@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 
 CLASS_NAMES = ["NC", "AD"]  # index 0 = NC, index 1 = AD (AD is the "positive" class)
 MEAN, STD = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
-ROOT = Path("../../data/ADNI/AD_NC")
+ROOT = Path("data/ADNI/AD_NC")
 
 
 def class_to_idx(cls):
@@ -20,6 +20,9 @@ def scan_split(split):
     """Transforms raw data files to a list of (filepath, class, id) tuples"""
     records = [] 
     for cls in CLASS_NAMES:
+        folder = Path(ROOT) / split / cls          # e.g. AD_NC/test/AD
+        if not folder.is_dir():
+            raise FileNotFoundError(f"Missing folder: {folder}")
         for p in sorted((ROOT/split/cls).glob("*.jpeg")): # Gets files from location like AD_NC/test/AD
             patient_id, slice_num = p.stem.split('_')
 
@@ -29,14 +32,14 @@ def scan_split(split):
     return records
 
 
-def split_by_patient(records, val_frac=0.5):
+def split_by_patient(records, val_frac=0.5, seed=123):
     """Patient-level, class-stratified split into (val, test)."""
     patients_by_label = {0: [], 1: []}
     for path, label, pid in records:
         if pid not in patients_by_label[label]:
             patients_by_label[label].append(pid)
 
-    rng = random.Random(123)
+    rng = random.Random(seed)
     val_patients = []
     test_patients = []
     for label, patients in patients_by_label.items():
