@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score, confusion_matrix
 
+from modules import ResNet
+from dataset import get_dataloaders
 CUTOFF = 0.5
 device = "cuda" if torch.cuda.is_available() else "cpu"
 @torch.no_grad()
@@ -33,3 +35,18 @@ def evaluate(model, data, criterion=None):
                "nc_recall": tn/(tn+fp), "auc": roc_auc_score(labels, probs),
                "fn_rate": fn/(tp+fn)}
     return {"loss": loss_sum / n, "slice": metrics}
+
+def main(ckpt="model.pt"):
+    _, _, test_loader = get_dataloaders()
+
+    model = ResNet(num_classes=1).to(device)
+    state = torch.load(ckpt, map_location=device, weights_only=True)
+    model.load_state_dict(state)
+
+    result = evaluate(model, test_loader)
+    print(f"test loss: {result['loss']:.4f}")
+    print({k: round(float(v), 4) for k, v in result["slice"].items()})
+
+
+if __name__ == "__main__":
+    main()
