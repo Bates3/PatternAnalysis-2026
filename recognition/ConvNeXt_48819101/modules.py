@@ -1,8 +1,15 @@
 import torch
 import torch.nn as nn
 
+def drop_path(x, p, training):
+    if p == 0.0 or not training:
+        return x
+    keep = 1 - p
+    mask = x.new_empty(x.shape[0], *([1] * (x.ndim - 1))).bernoulli_(keep)
+    return x * mask / keep
+
 class BasicBlock(nn.Module):
-    def __init__(self, inplanes, outplanes, stride=1, downsample: nn.Module=None):
+    def __init__(self, inplanes, outplanes, stride=1, downsample: nn.Module=None, drop_path_p=0.0):
         super().__init__()
         expansion_factor = 4
 
@@ -16,6 +23,7 @@ class BasicBlock(nn.Module):
         self.conv3 = nn.Conv2d(outplanes, outplanes*expansion_factor, 1)
         self.bn3 = nn.BatchNorm2d(outplanes*expansion_factor)
         self.downsample = downsample
+        self.drop_path_p = drop_path_p
     
     def forward(self, x):
         identity = x
@@ -35,12 +43,14 @@ class BasicBlock(nn.Module):
         if self.downsample is not None:
             identity = self.downsample(x)
 
+        # Drop path for stochastic depth regularisation before skip connection
+        out = drop_path(out, self.drop_path_p, self.training)
         out += identity
         out = self.relu(out)
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, in_channels=3, num_classes=10, drop_path_rate=0.0):
         super().__init__()
         self.expansion_factor = 4
         self.inplanes = 64
@@ -88,3 +98,9 @@ class ResNet(nn.Module):
         for i in range(1, num_blocks):
             layers.append(BasicBlock(self.inplanes, planes))
         return nn.Sequential(*layers)
+
+"""
+-----------------------------------------------------------------------------------------------------------------
+Below is the adjusted model for ConvNeXt, built off of the above model
+-----------------------------------------------------------------------------------------------------------------
+"""
