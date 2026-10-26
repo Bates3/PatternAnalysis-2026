@@ -55,6 +55,7 @@ class ResNet(nn.Module):
         self.expansion_factor = 4
         self.inplanes = 64
 
+        self._dp = iter(torch.linspace(0, drop_path_rate, 16).tolist())
         self.conv1 = nn.Conv2d(3, 64, 7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU()
@@ -93,10 +94,10 @@ class ResNet(nn.Module):
 
         if stride != 1 or self.inplanes != outplanes:
             downsample = nn.Sequential(nn.Conv2d(self.inplanes, outplanes, 1, stride), nn.BatchNorm2d(outplanes))
-        layers = [BasicBlock(self.inplanes, planes, stride, downsample)]
+        layers = [BasicBlock(self.inplanes, planes, stride, downsample, drop_path_p=next(self._dp))]
         self.inplanes = outplanes
         for i in range(1, num_blocks):
-            layers.append(BasicBlock(self.inplanes, planes))
+            layers.append(BasicBlock(self.inplanes, planes, drop_path_p=next(self._dp)))
         return nn.Sequential(*layers)
 
 """
