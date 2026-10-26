@@ -20,7 +20,7 @@ The ADNI dataset found on Rangpur has data already split into training and testi
 ConvNeXt, a neural network achieved by applying choices which made the Swin Transformer successful onto ResNet-50, will be the primary model used for training. In choosing this model, I am choosing the hard difficulty band for the project. As ConvNeXt aims to be an improvement on ResNet-50, ResNet-50 will be used as a baseline model to compare to. 
 
 To get confidence scores for the classifications, the sigmoid activation function will be used. This function squeezes outputs, so that those closer to 0 or 1 are more confident predictions.
-#### Preliminary Feasibility Evidence
+#### Preliminary Feasibi    lity Evidence
 There are 10400 AD and 11120 NC training images and 4460 AD and 4540 NC testing images. All images are 256x240 pixels. All images are greyscale, meaning only 1 input channel. 
 Resources were estimated using batches of size 8, 16, 32, 64, and 128 testing on the 27.8 million parameters of torchvision’s built-in model convnext_tiny with an AdamW optimiser run on three optimizer steps. This was run on the aforementioned AMD GPU.
 bs=8: peak VRAM=1321 MiB
@@ -33,9 +33,12 @@ With these numbers, I will likely train on either a batch size of 64 or 128, tes
 Patient level data leakage is possible, where a patient has slices in both test and training sets, so an id check will need to be done to ensure this hasn’t occurred in the provided data. 
 As I will be running the training locally, my budget is entirely related to the AMD GPU data shown above. The next planned experiment is to train ResNet-50 on the training data, recording VRAM usage and time. If I am unable to train locally due to AMD rocm bugs (some issues with batchnorm2d), I will fallback to training on Rangpur. If I am unable to figure out the ConvNeXt programming itself, I will switch to doing the improved 2D Improved U-NET HipMRI task instead.
 
-
+ResNet-50:
 epoch: 40 | train loss 0.1756707966172447 acc: 0.9229910714285714
 {'acc': np.float64(0.7462053571428572), 'ad_recall': np.float64(0.531981981981982), 'nc_recall': np.float64(0.9566371681415929), 'auc': 0.8325637805947541, 'fn_rate': np.float64(0.46801801801801)}
+
+epoch: 34 | train loss 0.18286731907920467 acc: 0.9187593005952381
+{'acc': np.float64(0.7555803571428571), 'ad_recall': np.float64(0.5454954954954955), 'nc_recall': np.float64(0.9619469026548673), 'auc': 0.8415108028382364, 'fn_rate': np.float6}
 
 test loss: 0.9186
 {'acc': 0.7093, 'ad_recall': 0.7804, 'nc_recall': 0.6395, 'auc': 0.7876, 'fn_rate': 0.2196}

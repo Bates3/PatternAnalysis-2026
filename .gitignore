@@ -2,3 +2,8 @@
 data/
 environments/
 model.pt
+*.pt
+errors.log
+
+__pycache__/
+outputs/
