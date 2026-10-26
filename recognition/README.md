@@ -34,11 +34,9 @@ Patient level data leakage is possible, where a patient has slices in both test 
 As I will be running the training locally, my budget is entirely related to the AMD GPU data shown above. The next planned experiment is to train ResNet-50 on the training data, recording VRAM usage and time. If I am unable to train locally due to AMD rocm bugs (some issues with batchnorm2d), I will fallback to training on Rangpur. If I am unable to figure out the ConvNeXt programming itself, I will switch to doing the improved 2D Improved U-NET HipMRI task instead.
 
 ResNet-50:
-epoch: 40 | train loss 0.1756707966172447 acc: 0.9229910714285714
-{'acc': np.float64(0.7462053571428572), 'ad_recall': np.float64(0.531981981981982), 'nc_recall': np.float64(0.9566371681415929), 'auc': 0.8325637805947541, 'fn_rate': np.float64(0.46801801801801)}
-
-epoch: 34 | train loss 0.18286731907920467 acc: 0.9187593005952381
-{'acc': np.float64(0.7555803571428571), 'ad_recall': np.float64(0.5454954954954955), 'nc_recall': np.float64(0.9619469026548673), 'auc': 0.8415108028382364, 'fn_rate': np.float6}
-
+best val auc 0.8476 @ epoch 27
+---------------CUTOFF = 0.5 ---------------------
+test: {'acc': np.float64(0.7579646017699115), 'ad_recall': np.float64(0.6767857142857143), 'nc_recall': np.float64(0.8377192982456141), 'auc': 0.824752702067669, 'fn_rate': np.float64(0.32321428571428573)}
 test loss: 0.9186
+
 {'acc': 0.7093, 'ad_recall': 0.7804, 'nc_recall': 0.6395, 'auc': 0.7876, 'fn_rate': 0.2196}

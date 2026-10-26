@@ -71,7 +71,7 @@ def plot_roc(probs, labels, cutoffs, save_path=None):
         plt.savefig(save_path, dpi=150)
     plt.show()
 
-def main(ckpt="model.pt"):
+def main(ckpt="resnet50.pt"):
     plot = False
     _, _, test_loader = get_dataloaders()
     model = ResNet(num_classes=1).to(device)
