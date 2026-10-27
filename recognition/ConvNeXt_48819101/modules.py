@@ -108,33 +108,33 @@ Below is the adjusted model for ConvNeXt, built off of the above model
 class BasicBlockConv(nn.Module):
     def __init__(self, inplanes, outplanes, stride=1, downsample: nn.Module=None, drop_path_p=0.0):
         super().__init__()
-        expansion_factor = 4
+        self.dw = nn.Conv2d(inplanes, inplanes, 7, stride, padding=3, groups=inplanes, bias=False)
+        self.bn1 = nn.BatchNorm2d(inplanes)
+        
+        self.pw1 = nn.Conv2d(inplanes, 4 * outplanes, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(4 * outplanes)
+        
+        self.pw2 = nn.Conv2d(4 * outplanes, outplanes, 1, bias=False)
+        self.bn3 = nn.BatchNorm2d(outplanes)
 
-        self.conv1 = nn.Conv2d(inplanes, outplanes, 1)
-        self.bn1 = nn.BatchNorm2d(outplanes)
-        self.relu = nn.ReLU()
-
-        self.conv2 = nn.Conv2d(outplanes, outplanes, 3, stride, padding=1, groups=outplanes, bias=False)
-        self.bn2 = nn.BatchNorm2d(outplanes)
-
-        self.conv3 = nn.Conv2d(outplanes, outplanes*expansion_factor, 1)
-        self.bn3 = nn.BatchNorm2d(outplanes*expansion_factor)
         self.downsample = downsample
         self.drop_path_p = drop_path_p
+
+        self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x):
         identity = x
 
-        out = self.conv1(x)
+        out = self.dw(x)
         out = self.bn1(out)
         out = self.relu(out)
         
 
-        out = self.conv2(out)
+        out = self.pw1(out)
         out = self.bn2(out)
         out = self.relu(out)
 
-        out = self.conv3(out)
+        out = self.pw2(out)
         out = self.bn3(out)
         
         if self.downsample is not None:
@@ -149,12 +149,11 @@ class BasicBlockConv(nn.Module):
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels=3, num_classes=10, drop_path_rate=0.0):
         super().__init__()
-        self.expansion_factor = 4
-        self.inplanes = 64
+        self.inplanes = 96
 
-        self._dp = iter(torch.linspace(0, drop_path_rate, 16).tolist())
-        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=4, stride=4)
-        self.bn1 = nn.BatchNorm2d(64)
+        self._dp = iter(torch.linspace(0, drop_path_rate, 18).tolist())
+        self.conv1 = nn.Conv2d(in_channels, 96, kernel_size=4, stride=4)
+        self.bn1 = nn.BatchNorm2d(96)
         self.relu = nn.ReLU()
 
         self.layer1 = self.make_layer(96, 3, 1)
@@ -164,7 +163,7 @@ class ConvNeXt(nn.Module):
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten(1)
-        self.fc = nn.Linear(512 * self.expansion_factor, num_classes)
+        self.fc = nn.Linear(768, num_classes)
 
     def forward(self, x):
         out = self.conv1(x)
@@ -183,14 +182,14 @@ class ConvNeXt(nn.Module):
 
     def make_layer(self, planes, num_blocks, stride):
         
-        outplanes = planes*self.expansion_factor
+        outplanes = planes
      
         downsample = None
 
         if stride != 1 or self.inplanes != outplanes:
             downsample = nn.Sequential(nn.Conv2d(self.inplanes, outplanes, 1, stride), nn.BatchNorm2d(outplanes))
-        layers = [BasicBlock(self.inplanes, planes, stride, downsample, drop_path_p=next(self._dp))]
+        layers = [BasicBlockConv(self.inplanes, planes, stride, downsample, drop_path_p=next(self._dp))]
         self.inplanes = outplanes
         for i in range(1, num_blocks):
-            layers.append(BasicBlock(self.inplanes, planes, drop_path_p=next(self._dp)))
+            layers.append(BasicBlockConv(self.inplanes, planes, drop_path_p=next(self._dp)))
         return nn.Sequential(*layers)
