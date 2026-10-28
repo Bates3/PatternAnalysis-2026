@@ -10,15 +10,15 @@ from modules import ConvNeXt
 from predict import evaluate
 
 
-EPOCHS = 40
-WARMUP_EPOCHS = 2
-LR = 1e-4
+EPOCHS = 100
+WARMUP_EPOCHS = 4
+LR = 4e-4
 WD = 0.05
 LABEL_SMOOTHING = 0.1   
 BATCH=64
 SEED=123
 CUTOFF = 0.5
-DROP_PATH = 0.0
+DROP_PATH = 0.1
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -72,7 +72,7 @@ def main(model_name):
     total = EPOCHS * len(train_loader)
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
 
-
+    torch.cuda.reset_peak_memory_stats()
     start_time = time.time()
     for epoch in range(EPOCHS):
         model.train()
@@ -110,7 +110,10 @@ def main(model_name):
             best_auc = v["auc"]
             best_epoch = epoch + 1
             torch.save(model.state_dict(), f"{model_name}.pt")
-        
+        alloc = torch.cuda.max_memory_allocated() / 1024**3
+    reserved = torch.cuda.max_memory_reserved() / 1024**3
+    total_mem = torch.cuda.get_device_properties(0).total_memory / 1024**3
+    print(f"overall peak mem: {alloc:.2f} GiB allocated | {reserved:.2f} GiB reserved | {total_mem:.2f} GiB total")
     model.load_state_dict(torch.load(f"{model_name}.pt"))
     print(f"best val auc {best_auc:.4f} @ epoch {best_epoch}")
     print("test:", evaluate(model, test_loader)["slice"])
