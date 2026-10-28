@@ -63,9 +63,10 @@ class ADNIDataset(Dataset):
 
     def __init__(self, records, img_size=224, train=False, return_path=False):
         self.records, self.return_path = records, return_path
+        self.patient_ids = [r[2] for r in records]   
         steps = [T.Resize((img_size, img_size))]
         if train:
-            steps += [T.RandomHorizontalFlip(), T.RandAugment(num_ops=2, magnitude=9)]
+            steps += [T.RandomHorizontalFlip(), T.RandomAffine(degrees=10, translate=(0.05, 0.05), scale=(0.9, 1.1))]
         steps += [T.ToTensor(), T.Normalize(MEAN, STD)]
         if train:
             steps += [T.RandomErasing(p=0.25)]

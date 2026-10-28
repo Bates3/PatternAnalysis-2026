@@ -4,10 +4,20 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score, roc_curve, confusion_matrix
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 from modules import ResNet
 from dataset import get_dataloaders
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def _metrics(probs, labels, cutoff):
+    pred = (probs >= cutoff).astype(int)
+    tn, fp, fn, tp = confusion_matrix(labels, pred, labels=[0, 1]).ravel()
+    return {"acc": (tp + tn) / len(labels), "ad_recall": tp / max(tp + fn, 1),
+            "nc_recall": tn / max(tn + fp, 1), "auc": roc_auc_score(labels, probs),
+            "fn_rate": fn / max(tp + fn, 1)}
+
+
 @torch.no_grad()
 def evaluate(model, data, criterion=None, cutoff=0.5, plot=False):
     if criterion is None:
@@ -16,9 +26,17 @@ def evaluate(model, data, criterion=None, cutoff=0.5, plot=False):
     model.eval()
     probs = []
     labels = []
-    loss_sum, n = 0.0, 0
+    pids = []
+    loss_sum, n, offset = 0.0, 0, 0
     for batch in data:
         x, y = batch[0].to(device), batch[1].to(device)
+
+
+        if len(batch) > 2:
+            pid = [p.item() if torch.is_tensor(p) else p for p in batch[2]]
+        else:
+            pid = data.dataset.patient_ids[offset: offset + len(y)]
+        offset += len(y)
 
         logits = model(x).squeeze(1)
         loss = criterion(logits, y.float())
@@ -27,17 +45,23 @@ def evaluate(model, data, criterion=None, cutoff=0.5, plot=False):
         n += y.size(0)
         probs.append(torch.sigmoid(logits.float()).cpu())
         labels.append(y.cpu())
+        pids.extend(pid)
     probs, labels = torch.cat(probs).numpy(), torch.cat(labels).numpy()
 
-    pred = (probs >= cutoff).astype(int)
-    tn, fp, fn, tp = confusion_matrix(labels, pred, labels=[0,1]).ravel()
-    metrics = {"acc": (tp+tn)/len(labels), "ad_recall": tp/(tp + fn), 
-               "nc_recall": tn/(tn+fp), "auc": roc_auc_score(labels, probs),
-               "fn_rate": fn/(tp+fn)}
+    metrics = _metrics(probs, labels, cutoff)
+
+    groups = defaultdict(list)
+    for p, pr, lb in zip(pids, probs, labels):
+        groups[p].append((pr, lb))
+    pat_probs = np.array([np.mean([a for a, _ in v]) for v in groups.values()])
+    pat_labels = np.array([v[0][1] for v in groups.values()])
+    pat_metrics = _metrics(pat_probs, pat_labels, cutoff)
+    pat_metrics["n"] = len(pat_labels)
+
     print(f"---------------CUTOFF = {cutoff} ---------------------")
     if plot:
         plot_roc(probs, labels, np.arange(0.3, 0.6, 0.05), save_path="roc.png")
-    return {"loss": loss_sum / n, "slice": metrics}
+    return {"loss": loss_sum / n, "slice": metrics, "patient": pat_metrics}
 
 
 def plot_roc(probs, labels, cutoffs, save_path=None):
@@ -84,8 +108,9 @@ def main(ckpt="resnet50.pt"):
             plot = True
         result = evaluate(model, test_loader, cutoff=i, plot=plot)
         print(f"test loss: {result['loss']:.4f}")
-        print({k: round(float(v), 4) for k, v in result["slice"].items()})
+        print("slice:  ", {k: round(float(v), 4) for k, v in result["slice"].items()})
+        print("patient:", {k: round(float(v), 4) for k, v in result["patient"].items()})
     
 
 if __name__ == "__main__":
-    main()
+    main(ckpt="convnext.pt")
