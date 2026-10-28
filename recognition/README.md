@@ -1,9 +1,17 @@
-# COMP3710 Report
+# A ConvNeXt Approach to Identifying Alzheimer's Disease Using ADNI Data
 
 **Benjamin Bateman**
 48819101
 
----
+## 1
+### Algorithm
+This paper goes through the creation of a ConvNeXt model for classifying data with an ADNI dataset. The ConvNeXt algorithm is built on the ResNet-50 algorithm, but adjusted in ways that made vision transformers successful. It is a convolutional neural network (ConvNet), and was built to figure out if a pure ConvNet could match the output performance of vision tranformers like the Swin Transformer. In this paper it is used to classify MRI scans from the ADNI dataset as having Alzheimer's or not.
+
+The ResNet-50 model consists of a stack of 16 bottlenecked blocks, each computing a residual (F(x)) with each block being a 1x1, 3x3, then another 1x1 conv followed by a BatchNorm and ReLU. A skip connection (adding the input to the output of the block) allows gradients to permeate deep within the network. These blocks repeated (3, 4, 6, 3) times, with downsampling happening after each block has been repeated the set number of times. A global average pool plus a linear layer produces the final score.
+
+ConvNeXt keeps the bones of this, moving in the direction of the Swin Tranformer. It starts with changing the training algorithm and hyperparameters. The hyperparamters used for this model can be found later in the paper. The block ratio is then changed from (3, 4, 6, 3) to (3, 3, 9, 3) and the stem, which previously contained a 7x7 conv followed be a maxpool, is replaced with a 4x4 stride 4 conv followed by a layernorm. The 3x3 conv is replace with a 7x7 conv and placed first in the bottleneck block. Said block is also inverted, going from wide-narrow-wide to narrow-wide-narrow. GELU replaces ReLU with only one activation function being used per block, and LayerNorms replace the BatchNorms. Downsampling is also changed, moving to a separate 2x2 stride 2 conv that exists between layers.
+
+All information comes from 'A ConvNet for the 2020s' (https://arxiv.org/pdf/2201.03545), which saw an increase from 76.1% to 82.0% on the same compute for ImageNet.
 
 ## Section 3 — Feasability Check
 ### User Need, Scope & Acceptance Criteria
@@ -63,3 +71,7 @@ epoch: 5 | train loss 0.6988065104399409 acc: 0.5035342261904762 | time: 784.762
 This transalated to a 0.68 test accuracy and 0.75 auc
 
 Tried again with drop path = 0.1, 60 epochs and a learning rate back at 4e-3
+
+tried again at layer norm = 1e-6, but it never learned anything (stayed at train loss of 0.69)
+tried again at layer norm = 1e-3
+Added mixup
