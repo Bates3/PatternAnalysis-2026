@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import math
 import time
+import numpy as np
 
 from dataset import get_dataloaders
 from modules import ResNet
@@ -20,6 +21,16 @@ SEED=123
 CUTOFF = 0.5
 DROP_PATH = 0.1
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+MIXUP_ALPHA = 0.2   
+MIXUP_PROB = 1.0    
+
+def mixup(x, y, alpha):
+    lam = np.random.beta(alpha, alpha)
+    perm = torch.randperm(x.size(0), device=x.device)
+    x = lam * x + (1 - lam) * x[perm]
+    y = lam * y + (1 - lam) * y[perm]
+    return x, y, lam, perm
 
 
 def main(model_name):
@@ -84,7 +95,12 @@ def main(model_name):
             x, y = x.to(device), y.to(device)
             
             y = y.float()
+            y_orig = y.clone()
             y_smooth = y * (1 - LABEL_SMOOTHING) + 0.5 * LABEL_SMOOTHING
+
+            use_mix = MIXUP_ALPHA > 0 and np.random.rand() < MIXUP_PROB
+            if use_mix:
+                x, y_smooth, lam, perm = mixup(x, y_smooth, MIXUP_ALPHA)
 
             opt.zero_grad()
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=on_gpu):
@@ -100,7 +116,14 @@ def main(model_name):
 
             run_loss += loss.item() * y.size(0)
             seen += y.size(0)
-            correct += ((logits > 0).long() == y.long()).sum().item()
+
+            if use_mix:
+        # score against whichever source image dominates the mix
+                target = y_orig if lam >= 0.5 else y_orig[perm]
+            else:
+                target = y_orig
+
+            correct += ((logits > 0).long() == target.long()).sum().item()
         val = evaluate(model, val_loader)
         v = val["slice"]
         print(f"epoch: {epoch+1} | train loss {run_loss/seen} acc: {correct/seen} | time: {time.time()-start_time}")
