@@ -2,6 +2,7 @@ import random
 import torch
 import torch.nn as nn
 import math
+import time
 
 from dataset import get_dataloaders
 from modules import ResNet
@@ -10,14 +11,14 @@ from predict import evaluate
 
 
 EPOCHS = 40
-WARMUP_EPOCHS = 4
-LR = 3e-4
+WARMUP_EPOCHS = 2
+LR = 1e-4
 WD = 0.05
 LABEL_SMOOTHING = 0.1   
 BATCH=64
 SEED=123
 CUTOFF = 0.5
-DROP_PATH = 0.1
+DROP_PATH = 0.0
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -25,13 +26,17 @@ def main(model_name):
     random.seed(123)
     torch.manual_seed(123)
     torch.cuda.manual_seed(123)
-
+    print(device)
     train_loader, val_loader, test_loader = get_dataloaders(batch_size=BATCH)
     if model_name == 'resnet50':
         model = ResNet(num_classes=1, drop_path_rate=DROP_PATH).to(device)
         torch.backends.cudnn.enabled = False # Fixes bug with running on AMD rocm
     elif model_name == 'convnext':
         model = ConvNeXt(num_classes=1, drop_path_rate=DROP_PATH).to(device)
+        torch.backends.cudnn.enabled = True
+        print("hello")
+    else:
+        return
     criterion = nn.BCEWithLogitsLoss()
 
     # no weight decay on normal paramters
@@ -68,7 +73,7 @@ def main(model_name):
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
 
 
-
+    start_time = time.time()
     for epoch in range(EPOCHS):
         model.train()
         run_loss = 0
@@ -98,13 +103,14 @@ def main(model_name):
             correct += ((logits > 0).long() == y.long()).sum().item()
         val = evaluate(model, val_loader)
         v = val["slice"]
-        print(f"epoch: {epoch+1} | train loss {run_loss/seen} acc: {correct/seen}")
+        print(f"epoch: {epoch+1} | train loss {run_loss/seen} acc: {correct/seen} | time: {time.time()-start_time}")
         print(v)
 
         if v["auc"] > best_auc:
             best_auc = v["auc"]
             best_epoch = epoch + 1
             torch.save(model.state_dict(), f"{model_name}.pt")
+        
     model.load_state_dict(torch.load(f"{model_name}.pt"))
     print(f"best val auc {best_auc:.4f} @ epoch {best_epoch}")
     print("test:", evaluate(model, test_loader)["slice"])

@@ -114,16 +114,16 @@ class LayerNorm2d(nn.LayerNorm):
 
 
 class BasicBlockConv(nn.Module):
-    def __init__(self, planes, drop_path_p=0.0):
+    def __init__(self, planes, drop_path_p=0.0, layer_scale=1e-2):
         super().__init__()
         self.dw = nn.Conv2d(planes, planes, 7, padding=3, groups=planes)
-        self.norm = LayerNorm2d(planes, eps=1e-6)
+        self.norm = LayerNorm2d(planes, eps=1e-3)
         
         self.pw1 = nn.Conv2d(planes, 4 * planes, 1)
        
         
         self.pw2 = nn.Conv2d(4 * planes, planes, 1)
-        
+        self.gamma = nn.Parameter(layer_scale * torch.ones(planes))
         self.drop_path_p = drop_path_p
 
         self.gelu = nn.GELU()
@@ -138,7 +138,7 @@ class BasicBlockConv(nn.Module):
         out = self.gelu(out)
 
         out = self.pw2(out)
-
+        out = out * self.gamma[:, None, None]
         # Drop path for stochastic depth regularisation before skip connection
         out = drop_path(out, self.drop_path_p, self.training)
         out += identity
@@ -152,7 +152,7 @@ class ConvNeXt(nn.Module):
 
         self.stem = nn.Sequential(
             nn.Conv2d(in_channels, 96, 4, stride=4),
-            LayerNorm2d(96, eps=1e-6),
+            LayerNorm2d(96, eps=1e-2),
         )
 
         self.layer1 = self.make_layer(96, 96, 3, downsample=False)
@@ -162,7 +162,7 @@ class ConvNeXt(nn.Module):
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten(1)
-        self.norm = nn.LayerNorm(768, eps=1e-6)
+        self.norm = nn.LayerNorm(768, eps=1e-2)
         self.fc = nn.Linear(768, num_classes)
 
         self.apply(self.init_weights)
@@ -184,7 +184,7 @@ class ConvNeXt(nn.Module):
     def make_layer(self, inplanes, outplanes, num_blocks, downsample=True):
         layers = []
         if downsample:
-            layers += [LayerNorm2d(inplanes, eps=1e-6),
+            layers += [LayerNorm2d(inplanes, eps=1e-2),
                        nn.Conv2d(inplanes, outplanes, kernel_size=2, stride=2)]
         layers += [BasicBlockConv(outplanes, next(self._dp)) for _ in range(num_blocks)]
         return nn.Sequential(*layers)
