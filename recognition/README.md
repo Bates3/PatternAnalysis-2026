@@ -33,10 +33,33 @@ With these numbers, I will likely train on either a batch size of 64 or 128, tes
 Patient level data leakage is possible, where a patient has slices in both test and training sets, so an id check will need to be done to ensure this hasn’t occurred in the provided data. 
 As I will be running the training locally, my budget is entirely related to the AMD GPU data shown above. The next planned experiment is to train ResNet-50 on the training data, recording VRAM usage and time. If I am unable to train locally due to AMD rocm bugs (some issues with batchnorm2d), I will fallback to training on Rangpur. If I am unable to figure out the ConvNeXt programming itself, I will switch to doing the improved 2D Improved U-NET HipMRI task instead.
 
-ResNet-50:
+## ResNet-50:
 best val auc 0.8476 @ epoch 27
 ---------------CUTOFF = 0.5 ---------------------
 test: {'acc': np.float64(0.7579646017699115), 'ad_recall': np.float64(0.6767857142857143), 'nc_recall': np.float64(0.8377192982456141), 'auc': 0.824752702067669, 'fn_rate': np.float64(0.32321428571428573)}
 test loss: 0.9186
 
-{'acc': 0.7093, 'ad_recall': 0.7804, 'nc_recall': 0.6395, 'auc': 0.7876, 'fn_rate': 0.2196}
+Before updating training: {'acc': 0.7093, 'ad_recall': 0.7804, 'nc_recall': 0.6395, 'auc': 0.7876, 'fn_rate': 0.2196}
+
+After updating trining: {'acc': 0.7586, 'ad_recall': 0.7384, 'nc_recall': 0.7785, 'auc': 0.8248, 'fn_rate': 0.2616}
+
+## ConvNeXt
+poch: 1 | train loss 0.6959889016690708 acc: 0.4993489583333333 | time: 157.44596481323242
+{'acc': np.float64(0.4955357142857143), 'ad_recall': np.float64(1.0), 'nc_recall': np.float64(0.0), 'auc': 0.5092609423582876, 'fn_rate': np.float64(0.0)}
+---------------CUTOFF = 0.5 ---------------------
+epoch: 2 | train loss 0.6938918678178674 acc: 0.5113467261904762 | time: 313.89177918434143
+{'acc': np.float64(0.5165178571428571), 'ad_recall': np.float64(0.6977477477477477), 'nc_recall': np.float64(0.33849557522123896), 'auc': 0.5304126803794946, 'fn_rate': np.float64(0.3022522522522523)}
+---------------CUTOFF = 0.5 ---------------------
+epoch: 3 | train loss 0.6941177325234527 acc: 0.5114862351190477 | time: 470.547616481781
+{'acc': np.float64(0.5158482142857143), 'ad_recall': np.float64(0.08198198198198198), 'nc_recall': np.float64(0.9420353982300885), 'auc': 0.5451234752451567, 'fn_rate': np.float64(0.918018018018018)}
+---------------CUTOFF = 0.5 ---------------------
+epoch: 4 | train loss 0.7056000704566637 acc: 0.5056733630952381 | time: 627.708505153656
+{'acc': np.float64(0.4955357142857143), 'ad_recall': np.float64(1.0), 'nc_recall': np.float64(0.0), 'auc': 0.5296995336044008, 'fn_rate': np.float64(0.0)}
+---------------CUTOFF = 0.5 ---------------------
+epoch: 5 | train loss 0.6988065104399409 acc: 0.5035342261904762 | time: 784.7627470493317
+{'acc': np.float64(0.5044642857142857), 'ad_recall': np.float64(0.0), 'nc_recall': np.float64(1.0), 'auc': 0.5460158056286375, 'fn_rate': np.float64(1.0)}
+
+1st proper training to 40 epochs it reached just 0.7 val accuracy and 0.7893 best auc
+This transalated to a 0.68 test accuracy and 0.75 auc
+
+Tried again with drop path = 0.1, 60 epochs and a learning rate back at 4e-3
