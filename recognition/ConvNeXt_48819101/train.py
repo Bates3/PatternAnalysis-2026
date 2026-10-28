@@ -5,9 +5,10 @@ import math
 
 from dataset import get_dataloaders
 from modules import ResNet
+from modules import ConvNeXt
 from predict import evaluate
 
-torch.backends.cudnn.enabled = False # Fixes bug with running on AMD rocm
+
 EPOCHS = 40
 WARMUP_EPOCHS = 4
 LR = 3e-4
@@ -28,8 +29,9 @@ def main(model_name):
     train_loader, val_loader, test_loader = get_dataloaders(batch_size=BATCH)
     if model_name == 'resnet50':
         model = ResNet(num_classes=1, drop_path_rate=DROP_PATH).to(device)
-    else:
-        return
+        torch.backends.cudnn.enabled = False # Fixes bug with running on AMD rocm
+    elif model_name == 'convnext':
+        model = ConvNeXt(num_classes=1, drop_path_rate=DROP_PATH).to(device)
     criterion = nn.BCEWithLogitsLoss()
 
     # no weight decay on normal paramters
@@ -108,4 +110,5 @@ def main(model_name):
     print("test:", evaluate(model, test_loader)["slice"])
 
 if __name__ == "__main__":
-    main('resnet50')
+    # main('resnet50')
+    main('convnext')
