@@ -32,7 +32,7 @@ def scan_split(split):
     return records
 
 
-def split_by_patient(records, val_frac=0.5, seed=123):
+def split_by_patient(records, val_frac=0.15, seed=123):
     """Patient-level, class-stratified split into (val, test)."""
     patients_by_label = {0: [], 1: []}
     for path, label, pid in records:
@@ -41,21 +41,21 @@ def split_by_patient(records, val_frac=0.5, seed=123):
 
     rng = random.Random(seed)
     val_patients = []
-    test_patients = []
+    train_patients = []
     for label, patients in patients_by_label.items():
         rng.shuffle(patients)
         n = int(len(patients) * val_frac)
         val_patients = val_patients + patients[:n]
         test_patients = test_patients + patients[n:]
     val = []
-    test = []
+    train = []
     for r in records:
         if r[2] in val_patients:
             val.append(r)
         if r[2] in test_patients:
-            test.append(r)
-    assert not ({r[2] for r in test} & {r[2] for r in val}), "Patient leakage: test/val"
-    return test, val
+            train.append(r)
+    assert not ({r[2] for r in train} & {r[2] for r in val}), "Patient leakage: train/val"
+    return train, val
 
 
 class ADNIDataset(Dataset):
@@ -66,10 +66,10 @@ class ADNIDataset(Dataset):
         self.patient_ids = [r[2] for r in records]   
         steps = [T.Resize((img_size, img_size))]
         if train:
-            steps += [T.RandomHorizontalFlip(), T.RandomAffine(degrees=10, translate=(0.05, 0.05), scale=(0.9, 1.1))]
+            steps += [T.RandomHorizontalFlip(), T.RandomAffine(degrees=5, translate=(0.03, 0.03))]
         steps += [T.ToTensor(), T.Normalize(MEAN, STD)]
-        if train:
-            steps += [T.RandomErasing(p=0.25)]
+        # if train:
+        #     steps += [T.RandomErasing(p=0.25)]
         self.tf = T.Compose(steps)
 
     def __len__(self):
@@ -82,13 +82,13 @@ class ADNIDataset(Dataset):
 
 
 def _load_splits(val_frac=0.5, seed=123):
-    train = scan_split("train")
-    test_all = scan_split("test")
-    test, val = split_by_patient(test_all, val_frac, seed)
-    seen = {r[2] for r in train}
+    train_all = scan_split("train")
+    test = scan_split("test")
+    test, val = split_by_patient(train_all, val_frac, seed)
+    seen = {r[2] for r in test}
     assert not (seen & {r[2] for r in test}), "Patient leakage: train/test"
     assert not (seen & {r[2] for r in val}), "Patient leakage: train/test"
-    return train, val, test
+    return test, val, test
 
 
 def get_dataloaders(root=None, batch_size=64, img_size=224, num_workers=3, val_frac=0.5, seed=123):
