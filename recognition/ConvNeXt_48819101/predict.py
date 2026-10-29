@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 from modules import ResNet
+from modules import ConvNeXt
 from dataset import get_dataloaders
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -16,7 +17,37 @@ def _metrics(probs, labels, cutoff):
     return {"acc": (tp + tn) / len(labels), "ad_recall": tp / max(tp + fn, 1),
             "nc_recall": tn / max(tn + fp, 1), "auc": roc_auc_score(labels, probs),
             "fn_rate": fn / max(tp + fn, 1)}
+def patient_rule(pids, probs, labels, slice_cutoff=0.5, ad_frac=0.10):
+    groups = defaultdict(list)
+    for p, pr, lb in zip(pids, probs, labels):
+        groups[p].append((pr, lb))
 
+    decisions, counts = {}, defaultdict(int)
+    for pid, v in groups.items():
+        slice_probs = np.array([a for a, _ in v])
+        label = int(v[0][1])
+        frac = float((slice_probs >= slice_cutoff).mean())
+        if frac > ad_frac:
+            d = "AD"
+        elif frac > 0:
+            d = "review"
+        else:
+            d = "NC"
+        decisions[pid] = (d, frac, label)
+        counts[(label, d)] += 1
+
+    n_ad = sum(1 for _, _, l in decisions.values() if l == 1)
+    n_nc = len(decisions) - n_ad
+    return {
+        "decisions": decisions,
+        "ad_called_AD": counts[(1, "AD")] / max(n_ad, 1),
+        "ad_called_review": counts[(1, "review")] / max(n_ad, 1),
+        "ad_missed_NC": counts[(1, "NC")] / max(n_ad, 1),
+        "nc_called_NC": counts[(0, "NC")] / max(n_nc, 1),
+        "nc_called_review": counts[(0, "review")] / max(n_nc, 1),
+        "nc_called_AD": counts[(0, "AD")] / max(n_nc, 1),
+        "n_ad": n_ad, "n_nc": n_nc,
+    }
 
 @torch.no_grad()
 def evaluate(model, data, criterion=None, cutoff=0.5, plot=False):
@@ -57,11 +88,11 @@ def evaluate(model, data, criterion=None, cutoff=0.5, plot=False):
     pat_labels = np.array([v[0][1] for v in groups.values()])
     pat_metrics = _metrics(pat_probs, pat_labels, cutoff)
     pat_metrics["n"] = len(pat_labels)
-
+    rule = patient_rule(pids, probs, labels, slice_cutoff=cutoff)
     print(f"---------------CUTOFF = {cutoff} ---------------------")
     if plot:
         plot_roc(probs, labels, np.arange(0.3, 0.6, 0.05), save_path="roc.png")
-    return {"loss": loss_sum / n, "slice": metrics, "patient": pat_metrics}
+    return {"loss": loss_sum / n, "slice": metrics, "patient": pat_metrics, "rule": rule}
 
 
 def plot_roc(probs, labels, cutoffs, save_path=None):
@@ -98,7 +129,7 @@ def plot_roc(probs, labels, cutoffs, save_path=None):
 def main(ckpt="resnet50.pt"):
     plot = False
     _, _, test_loader = get_dataloaders()
-    model = ResNet(num_classes=1).to(device)
+    model = ConvNeXt(num_classes=1).to(device)
     state = torch.load(ckpt, map_location=device, weights_only=True)
     model.load_state_dict(state)
 
@@ -107,9 +138,11 @@ def main(ckpt="resnet50.pt"):
         if i > 0.54:
             plot = True
         result = evaluate(model, test_loader, cutoff=i, plot=plot)
+        r = evaluate(model, test_loader)["rule"]
         print(f"test loss: {result['loss']:.4f}")
         print("slice:  ", {k: round(float(v), 4) for k, v in result["slice"].items()})
         print("patient:", {k: round(float(v), 4) for k, v in result["patient"].items()})
+        print({k: round(v, 3) for k, v in r.items() if k != "decisions"})
     
 
 if __name__ == "__main__":

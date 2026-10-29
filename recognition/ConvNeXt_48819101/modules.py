@@ -114,10 +114,10 @@ class LayerNorm2d(nn.LayerNorm):
 
 
 class BasicBlockConv(nn.Module):
-    def __init__(self, planes, drop_path_p=0.0, layer_scale=1e-2):
+    def __init__(self, planes, drop_path_p=0.0, layer_scale=1e-3):
         super().__init__()
         self.dw = nn.Conv2d(planes, planes, 7, padding=3, groups=planes)
-        self.norm = LayerNorm2d(planes, eps=1e-2)
+        self.norm = LayerNorm2d(planes, eps=1e-6)
         
         self.pw1 = nn.Conv2d(planes, 4 * planes, 1)
        
@@ -148,21 +148,21 @@ class ConvNeXt(nn.Module):
     def __init__(self, in_channels=3, num_classes=10, drop_path_rate=0.0):
         super().__init__()
         self.inplanes = 96
-        self._dp = iter(torch.linspace(0, drop_path_rate, 18).tolist())
+        self._dp = iter(torch.linspace(0, drop_path_rate, 12).tolist())
 
         self.stem = nn.Sequential(
             nn.Conv2d(in_channels, 96, 4, stride=4),
-            LayerNorm2d(96, eps=1e-2),
+            LayerNorm2d(96, eps=1e-6),
         )
 
-        self.layer1 = self.make_layer(96, 96, 3, downsample=False)
-        self.layer2 = self.make_layer(96, 192, 3)
-        self.layer3 = self.make_layer(192, 384, 9)
-        self.layer4 = self.make_layer(384, 768, 3)
+        self.layer1 = self.make_layer(96, 96, 2, downsample=False)
+        self.layer2 = self.make_layer(96, 192, 2)
+        self.layer3 = self.make_layer(192, 384, 6)
+        self.layer4 = self.make_layer(384, 768, 2)
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten(1)
-        self.norm = nn.LayerNorm(768, eps=1e-2)
+        self.norm = nn.LayerNorm(768, eps=1e-6)
         self.fc = nn.Linear(768, num_classes)
 
         self.apply(self.init_weights)
@@ -184,7 +184,7 @@ class ConvNeXt(nn.Module):
     def make_layer(self, inplanes, outplanes, num_blocks, downsample=True):
         layers = []
         if downsample:
-            layers += [LayerNorm2d(inplanes, eps=1e-2),
+            layers += [LayerNorm2d(inplanes, eps=1e-6),
                        nn.Conv2d(inplanes, outplanes, kernel_size=2, stride=2)]
         layers += [BasicBlockConv(outplanes, next(self._dp)) for _ in range(num_blocks)]
         return nn.Sequential(*layers)

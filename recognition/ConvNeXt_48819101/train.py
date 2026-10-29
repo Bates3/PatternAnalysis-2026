@@ -11,19 +11,19 @@ from modules import ConvNeXt
 from predict import evaluate
 
 
-EPOCHS = 100
+EPOCHS = 50
 WARMUP_EPOCHS = 4
-LR = 4e-4
+LR = 2e-4
 WD = 0.05
-LABEL_SMOOTHING = 0.1   
+LABEL_SMOOTHING = 0.05   
 BATCH=64
 SEED=123
 CUTOFF = 0.5
-DROP_PATH = 0.1
+DROP_PATH = 0.15
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 MIXUP_ALPHA = 0.2   
-MIXUP_PROB = 1.0    
+MIXUP_PROB = 0.5   
 
 def mixup(x, y, alpha):
     lam = np.random.beta(alpha, alpha)
@@ -132,12 +132,12 @@ def main(model_name):
         if v["auc"] > best_auc:
             best_auc = v["auc"]
             best_epoch = epoch + 1
-            torch.save(model.state_dict(), f"{model_name}.pt")
+            torch.save(model.state_dict(), f"convnext2.pt")
         alloc = torch.cuda.max_memory_allocated() / 1024**3
     reserved = torch.cuda.max_memory_reserved() / 1024**3
     total_mem = torch.cuda.get_device_properties(0).total_memory / 1024**3
     print(f"overall peak mem: {alloc:.2f} GiB allocated | {reserved:.2f} GiB reserved | {total_mem:.2f} GiB total")
-    model.load_state_dict(torch.load(f"{model_name}.pt"))
+    model.load_state_dict(torch.load(f"convnext2.pt"))
     print(f"best val auc {best_auc:.4f} @ epoch {best_epoch}")
     print("test:", evaluate(model, test_loader)["slice"])
 
