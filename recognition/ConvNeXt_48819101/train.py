@@ -11,19 +11,19 @@ from modules import ConvNeXt
 from predict import evaluate
 
 
-EPOCHS = 50
+EPOCHS = 40
 WARMUP_EPOCHS = 4
-LR = 2e-4
+LR = 5e-4
 WD = 0.05
 LABEL_SMOOTHING = 0.05   
 BATCH=64
 SEED=123
 CUTOFF = 0.5
-DROP_PATH = 0.15
+DROP_PATH = 0.1
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 MIXUP_ALPHA = 0.2   
-MIXUP_PROB = 0.5   
+MIXUP_PROB = 0.75   
 
 def mixup(x, y, alpha):
     lam = np.random.beta(alpha, alpha)
@@ -79,7 +79,7 @@ def main(model_name):
 
     
 
-    best_auc, best_epoch = -1.0, 0
+    best_acc, best_epoch = -1.0, 0
     total = EPOCHS * len(train_loader)
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
 
@@ -129,16 +129,16 @@ def main(model_name):
         print(f"epoch: {epoch+1} | train loss {run_loss/seen} acc: {correct/seen} | time: {time.time()-start_time}")
         print(v)
 
-        if v["auc"] > best_auc:
-            best_auc = v["auc"]
+        if v["acc"] > best_acc:
+            best_acc = v["acc"]
             best_epoch = epoch + 1
-            torch.save(model.state_dict(), f"convnext2.pt")
+            torch.save(model.state_dict(), f"convnext3.pt")
         alloc = torch.cuda.max_memory_allocated() / 1024**3
     reserved = torch.cuda.max_memory_reserved() / 1024**3
     total_mem = torch.cuda.get_device_properties(0).total_memory / 1024**3
     print(f"overall peak mem: {alloc:.2f} GiB allocated | {reserved:.2f} GiB reserved | {total_mem:.2f} GiB total")
     model.load_state_dict(torch.load(f"convnext2.pt"))
-    print(f"best val auc {best_auc:.4f} @ epoch {best_epoch}")
+    print(f"best val acc {best_acc:.4f} @ epoch {best_epoch}")
     print("test:", evaluate(model, test_loader)["slice"])
 
 if __name__ == "__main__":
